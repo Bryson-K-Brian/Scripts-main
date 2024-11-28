@@ -1,0 +1,111 @@
+#replace df 
+#replace variable
+
+# Install and load necessary packages
+if (!requireNamespace("phyloseq", quietly = TRUE)) install.packages("phyloseq")
+if (!requireNamespace("dplyr", quietly = TRUE)) install.packages("dplyr")
+if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
+
+library(phyloseq)
+library(dplyr)
+library(ggplot2)
+
+# Clear the environment to avoid conflicts
+rm(list = ls())
+
+# Read the data
+df <- read.csv("/mnt/data/your_data.csv")  # Replace with your actual file path
+
+# Inspect the data to understand its structure
+head(df)
+str(df)
+
+# Define the OTU count columns and the metadata
+# Assuming OTU counts start at column 3 (adjust this if necessary)
+otu_table <- as.matrix(df[, 3:ncol(df)])
+rownames(otu_table) <- df[, 1]  # Assuming first column is sample IDs
+
+# Check for NA values in rownames
+if (any(is.na(rownames(otu_table)))) {
+  stop("There are NA values in the sample IDs.")
+}
+
+# Create a phyloseq object
+physeq <- phyloseq(otu_table(otu_table, taxa_are_rows = FALSE))
+
+# Calculate Shannon and Simpson diversity indices
+df_shannon_div <- estimate_richness(physeq, measures = "Shannon")
+df_simpson_div <- estimate_richness(physeq, measures = "Simpson")
+
+# Ensure that the row names match between the original data and the diversity indices
+if (!all(rownames(df_shannon_div) == rownames(df_simpson_div))) {
+  stop("Row names of diversity indices do not match.")
+}
+
+# Combine diversity indices with the original dataframe
+# Ensure the order of rows in the indices matches the order in the original dataframe
+df <- df[match(rownames(df_shannon_div), df[, 1]), ]
+
+df_long <- df %>%
+  mutate(
+    Shannon = df_shannon_div$Shannon,
+    Simpson = df_simpson_div$Simpson
+  )
+
+# Print to verify the combined dataframe
+print(head(df_long))
+
+# Compute mean Shannon and Simpson diversity metrics by grouping variable
+alpha_diversity_by_variable <- df_long %>%
+  dplyr::group_by(Variable) %>%
+  dplyr::summarise(
+    Mean_Shannon = mean(Shannon, na.rm = TRUE),
+    Mean_Simpson = mean(Simpson, na.rm = TRUE)
+  )
+
+# Print the alpha diversity metrics
+print("Alpha Diversity by Variable:")
+print(alpha_diversity_by_variable)
+
+# Export the alpha diversity metrics as a CSV file
+write.csv(alpha_diversity_by_variable, "/mnt/data/alpha_diversity_by_variable.csv", row.names = FALSE)
+
+# Scatter plot of mean Shannon vs. Simpson Diversity with colors and legend
+scatter_plot_shannon_vs_simpson_mean <- ggplot(alpha_diversity_by_variable, aes(x = Mean_Shannon, y = Mean_Simpson, color = Variable)) +
+  geom_point(size = 3) +
+  labs(title = "Scatter Plot of Mean Shannon vs. Simpson Diversity",
+       x = "Mean Shannon Diversity",
+       y = "Mean Simpson Diversity") +
+  theme_minimal() +
+  scale_color_manual(values = c("blue", "green", "red", "purple", "orange"))  # Customize colors as needed
+
+# Save scatter plot with mean values as TIFF
+ggsave(filename = "/mnt/data/scatter_plot_shannon_vs_simpson_mean.tiff",
+       plot = scatter_plot_shannon_vs_simpson_mean,
+       width = 8, height = 6, units = "in", dpi = 300, compression = "lzw")
+
+# Boxplots for Shannon and Simpson Diversity with colors
+boxplot_shannon <- ggplot(df_long, aes(x = Variable, y = Shannon, fill = Variable)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Shannon Diversity",
+       x = "Variable",
+       y = "Shannon Diversity") +
+  theme_minimal() +
+  scale_fill_manual(values = c("blue", "green", "red", "purple", "orange"))  # Customize colors as needed
+
+boxplot_simpson <- ggplot(df_long, aes(x = Variable, y = Simpson, fill = Variable)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Simpson Diversity",
+       x = "Variable",
+       y = "Simpson Diversity") +
+  theme_minimal() +
+  scale_fill_manual(values = c("blue", "green", "red", "purple", "orange"))  # Customize colors as needed
+
+# Save boxplots as TIFF
+ggsave(filename = "/mnt/data/boxplot_shannon.tiff",
+       plot = boxplot_shannon,
+       width = 8, height = 6, units = "in", dpi = 300, compression = "lzw")
+
+ggsave(filename = "/mnt/data/boxplot_simpson.tiff",
+       plot = boxplot_simpson,
+       width = 8, height = 6, units = "in", dpi = 300, compression = "lzw")

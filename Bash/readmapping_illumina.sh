@@ -14,7 +14,7 @@ echo "Read2 is $RD2"
 echo ""
 echo ""
 
-#Assembly with Spades
+#mapping with bwa mem
 bwa mem -t 6 P_mirabilis_chromosome_reference.fna $RD1 $RD1 -o ${f%_T}.sam
 samtools view -b ${f%_T}.sam > ${f%_T}.bam
 samtools view -bF 12 ${f%_T}.bam >${f%_T}_12F.bam

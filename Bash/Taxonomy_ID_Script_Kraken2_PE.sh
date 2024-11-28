@@ -1,4 +1,4 @@
-for f in raw_reads/*R1_001.fastq.gz;
+for f in *R1_001.fastq.gz;
 do
 
 mkdir -p taxid
@@ -15,8 +15,8 @@ echo ""
 echo ""
 
 #Taxonomic identification of reads
-kraken2 --db /home/data/Databases/Kraken2/k2_viral_20240112/ --threads 20 --output ${f%_S*}.tsv --minimum-base-quality 20 --paired --use-names $RD1 $RD2 
+kraken2 --db viral_db --threads 20 --output ${f%_S*}.tsv --report --minimum-base-quality 20 --paired --use-names $RD1 $RD2 
 
-mv raw_reads/*.tsv taxid
+mv *.tsv taxid
 
 done

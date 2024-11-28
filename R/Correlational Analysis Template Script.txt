@@ -1,0 +1,72 @@
+# Install and load necessary packages
+if (!requireNamespace("dplyr", quietly = TRUE)) install.packages("dplyr")
+if (!requireNamespace("reshape2", quietly = TRUE)) install.packages("reshape2")
+if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
+if (!requireNamespace("vegan", quietly = TRUE)) install.packages("vegan")
+if (!requireNamespace("Hmisc", quietly = TRUE)) install.packages("Hmisc")
+
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+library(vegan)
+library(Hmisc)
+
+# Clear the environment to avoid conflicts
+rm(list = ls())
+
+# Read the data
+df <- read.csv("/mnt/data/your_data.csv")  # Replace with your actual file path
+
+# Function to select OTU count columns (starting from the x column)
+select_otu_columns <- function(df) {
+  df[, x:ncol(df)]  # Adjusted to start from the x column
+
+# Calculate the abundance matrix
+abundance_matrix <- select_otu_columns(order_level_reads)
+
+# Calculate the co-occurrence matrix using Spearman correlation
+correlation_matrix <- rcorr(as.matrix(abundance_matrix), type = "spearman")
+
+# Extract correlation coefficients and p-values
+correlation_coefficients <- correlation_matrix$r
+p_values <- correlation_matrix$P
+
+# Filter significant correlations (p < 0.05)
+significant_correlations <- which(p_values < 0.05, arr.ind = TRUE)
+
+# Create a data frame of significant correlations
+significant_correlations_df <- data.frame(
+  Taxa1 = rownames(correlation_coefficients)[significant_correlations[, 1]],
+  Taxa2 = colnames(correlation_coefficients)[significant_correlations[, 2]],
+  Correlation = correlation_coefficients[significant_correlations],
+  p_value = p_values[significant_correlations]
+)
+
+# Print significant correlations
+print("Significant correlations between taxa:")
+print(significant_correlations_df)
+
+# Save significant correlations to a CSV file
+write.csv(significant_correlations_df, "/mnt/data/significant_correlations.csv", row.names = FALSE)
+
+# Create a matrix with only significant correlations
+significant_correlation_matrix <- correlation_coefficients
+significant_correlation_matrix[p_values >= 0.05] <- NA
+
+# Plot heatmap of the significant correlation matrix
+heatmap_plot <- ggplot(melt(significant_correlation_matrix, na.rm = TRUE), aes(Var1, Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0, limit = c(-1, 1), space = "Lab", name="Spearman\nCorrelation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 12, hjust = 1)) +
+  labs(title = "Heatmap of Significant Taxa Correlations",
+       x = "Taxa",
+       y = "Taxa")
+
+# Save heatmap plot as TIFF
+ggsave(filename = "/mnt/data/heatmap_significant_taxa_correlations.tiff",
+       plot = heatmap_plot,
+       width = 10, height = 8, units = "in", dpi = 300, compression = "lzw")
+
+# Print heatmap plot
+print(heatmap_plot)
