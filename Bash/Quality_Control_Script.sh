@@ -26,7 +26,7 @@ fi
 for f in "$input_dir"/*01.fastq.gz; do
     # Define Read1 and Read2
     RD1="$f"
-    RD2="${f%01.fastq.gz}02.fastq.gz"
+    RD2="${f%R1_001.fastq.gz}R2_001.fastq.gz"
 
     # Log Read1 and Read2
     echo ""
@@ -41,8 +41,8 @@ for f in "$input_dir"/*01.fastq.gz; do
     fi
 
     # Define trimmed output files
-    trm1="${output_dir}/$(basename "${f%01.fastq.gz}01_trimmed.fastq.gz")"
-    trm2="${output_dir}/$(basename "${f%01.fastq.gz}02_trimmed.fastq.gz")"
+    trm1="${output_dir}/$(basename "${f%R1_001.fastq.gz}R1_001_trimmed.fastq.gz")"
+    trm2="${output_dir}/$(basename "${f%R1_001.fastq.gz}R2_001_trimmed.fastq.gz")"
 
     # Quality Control using BBDUK
     echo "Running BBDUK for sample $(basename "$f" | sed 's/_S.*//')..."

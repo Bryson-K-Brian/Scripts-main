@@ -11,14 +11,14 @@ fi
 
 # Prompt for the Kraken2 database selection
 echo "Select the Kraken2 database:"
-select db in "viral_db" "standard_db" "other_db"; do
+select db in "viral_db" "standard_plus_db" "other_db"; do
     case $db in
         viral_db)
             echo "You selected the viral database"
             break
             ;;
-        standard_db)
-            echo "You selected the standard database"
+        standard_plus_db)
+            echo "You selected the standard plus database"
             break
             ;;
         other_db)

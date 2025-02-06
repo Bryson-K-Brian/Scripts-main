@@ -9,6 +9,9 @@ if [[ ! -d "$input_dir" ]]; then
     exit 1
 fi
 
+#Prompt for processing inputs
+read -p "Enter the number of threads to use: " THREADS
+
 # Prompt for the assembler selection (SPAdes or Unicycler)
 echo "Select the assembler:"
 select assembler in "spades" "unicycler"; do
@@ -29,7 +32,7 @@ done
 
 # Prompt for the assembly type selection (plasmid, rna viral, etc.)
 echo "Select the assembly type:"
-select assembly_type in "rna_viral" "plasmid" "default"; do
+select assembly_type in "rna_viral" "plasmid" "isolate" "meta" "rna" "metaviral" "metaplasmid"; do
     case $assembly_type in
         rna_viral)
             echo "You selected RNA viral assembly"
@@ -39,8 +42,24 @@ select assembly_type in "rna_viral" "plasmid" "default"; do
             echo "You selected Plasmid assembly"
             break
             ;;
-        default)
-            echo "You selected Default assembly"
+        isolate)
+            echo "You selected isolate assembly"
+            break
+            ;;
+        meta)
+            echo "You selected metagenomic assembly"
+            break
+            ;;
+        rna)
+            echo "You selected rna-seq assembly"
+            break
+            ;;
+        metaviral)
+            echo "You selected isolate assembly"
+            break
+            ;;
+        metaplasmid)
+            echo "You selected isolate assembly"
             break
             ;;
         *)
@@ -93,10 +112,13 @@ for f in *R1_001_trimmed.fastq.gz; do
     # Run assembler (SPAdes or Unicycler)
     if [[ "$assembler" == "spades" ]]; then
         echo "Running SPAdes for sample $sample_name with assembly type $assembly_type"
-        spades.py --$assembly_type -1 "$RD1" -2 "$RD2" -o "$sample_output_dir"
+        spades.py -1 "$R1" -2 "$R2" -o ${sample_name}_assembly/spades_output --threads "$THREADS"
+        # Rename SPAdes contigs file
+        mv ${sample_name}_assembly/spades_output/contigs.fasta ${sample_name}_assembly/${sample_name}_spades.fasta
     elif [[ "$assembler" == "unicycler" ]]; then
         echo "Running Unicycler for sample $sample_name"
-        unicycler --consensus --quiet -1 "$RD1" -2 "$RD2" -o "$sample_output_dir"
+        unicycler --verbosity 1 -1 "$RD1" -2 "$RD2" -o ${sample_name}_assembly/unicycler_output --threads "$THREADS"
+        mv ${sample_name}_assembly/unicycler_output/assembly.fasta ${sample_name}_assembly/${sample_name}_unicycler.fasta
     fi
 
     echo ""
