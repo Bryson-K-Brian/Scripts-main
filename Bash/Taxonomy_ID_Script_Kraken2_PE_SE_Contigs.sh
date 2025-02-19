@@ -88,10 +88,10 @@ if [[ "$read_type" == "paired_end" ]]; then
 
         # Run Kraken2 for paired-end taxonomic identification
         echo "Running Kraken2 for paired-end sample $(basename "$f" | sed 's/_R1_001.fastq.gz//') using the $db database..."
-        kraken2 --db "$db" --threads 20 --output "${f%_S*}.tsv" --report --minimum-base-quality 20 --paired --use-names "$RD1" "$RD2"
+        kraken2 --db "$db" --memory-mapping --threads 20 --output ${f%.fasta}.tsv --report --minimum-base-quality 20 --paired --use-names "$RD1" "$RD2"
 
         # Move the results to the 'taxid' folder
-        mv *.tsv taxid
+         mv ${f%.fasta}.tsv ../taxid/
 
         echo ""
         echo "Sample $(basename "$f" | sed 's/_R1_001.fastq.gz//') Kraken2 taxonomic identification complete."
@@ -116,10 +116,10 @@ elif [[ "$read_type" == "single_end" ]]; then
 
         # Run Kraken2 for single-end taxonomic identification
         echo "Running Kraken2 for single-end sample $(basename "$f" | sed 's/.fastq.gz//') using the $db database..."
-        kraken2 --db "$db" --threads 20 --output "${f%_S*}.tsv" --report --minimum-base-quality 20 --use-names "$f"
+        kraken2 --db "$db" --memory-mapping --threads 20 --output ${f%.fasta}.tsv --report --minimum-base-quality 20 --use-names "$f"
 
         # Move the results to the 'taxid' folder
-        mv *.tsv taxid
+        mv ${f%.fasta}.tsv ../taxid/
 
         echo ""
         echo "Sample $(basename "$f" | sed 's/.fastq.gz//') Kraken2 taxonomic identification complete."
@@ -144,10 +144,10 @@ elif [[ "$read_type" == "contigs" ]]; then
 
         # Run Kraken2 for contig taxonomic identification
         echo "Running Kraken2 for contig sample $(basename "$f" | sed 's/.fasta//') using the $db database..."
-        kraken2 --db "$db" --threads 20 --output "${f%_S*}.tsv" --report --minimum-base-quality 20 --use-names "$f"
+        kraken2 --db "$db" --memory-mapping --threads 20 --output ${f%.fasta}.tsv --report --minimum-base-quality 20 --use-names "$f"
 
         # Move the results to the 'taxid' folder
-        mv *.tsv taxid
+        mv ${f%.fasta}.tsv ../taxid/
 
         echo ""
         echo "Sample $(basename "$f" | sed 's/.fasta//') Kraken2 taxonomic identification complete."

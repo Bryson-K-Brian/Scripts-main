@@ -1,0 +1,91 @@
+RAW_READS_FOLDER = config["raw_reads"]
+THREADS = config["threads"]
+MEMORY = config["memory"]
+OUTPUT_DIR = config["output_dir"]
+KRAKEN_DB = config["kraken_db"]
+ADAPTERS = config["adapters"]
+
+rule all:
+    input:
+        f"{OUTPUT_DIR}/final_taxonomy_matrix.csv"
+
+rule quality_control:
+    input:
+        f"{RAW_READS_FOLDER}/{{sample}}.fastq"
+    output:
+        f"{OUTPUT_DIR}/qc/{{sample}}_clean.fastq"
+    params:
+        threads=THREADS,
+        memory=MEMORY
+    shell:
+        """
+        bbduk.sh in={input} out={output} ref={ADAPTERS} ktrim=r k=23 mink=11 hdist=1 tpe tbo qtrim=rl trimq=20 maq=20
+        """
+
+rule taxonomy_identification:
+    input:
+        f"{OUTPUT_DIR}/qc/{{sample}}_clean.fastq"
+    output:
+        f"{OUTPUT_DIR}/taxonomy/{{sample}}_kraken2_report.txt"
+    params:
+        threads=THREADS,
+        memory=MEMORY
+    shell:
+        """
+        kraken2 --db {KRAKEN_DB} --threads {params.threads} --report {output} --output /dev/null --use-names --classified-out {OUTPUT_DIR}/taxonomy/{{wildcards.sample}}_classified.fq --fastq-input {input}
+        """
+
+rule add_headers:
+    input:
+        f"{OUTPUT_DIR}/taxonomy/{{sample}}_kraken2_report.txt"
+    output:
+        f"{OUTPUT_DIR}/taxonomy/{{sample}}_kraken2_report_with_headers.tsv"
+    shell:
+        """
+        echo -e "Percentage\tReads\tTaxon\tTaxon_Name" > {output}
+        cat {input} >> {output}
+        """
+
+rule combine_with_sources:
+    input:
+        f"{OUTPUT_DIR}/taxonomy/{{sample}}_kraken2_report_with_headers.tsv"
+    output:
+        f"{OUTPUT_DIR}/taxonomy/{{sample}}_combined_report.tsv"
+    shell:
+        """
+        awk 'NR==1 || $3 ~ /^[0-9]+$/' {input} > {output}
+        """
+
+rule species_selection:
+    input:
+        f"{OUTPUT_DIR}/taxonomy/{{sample}}_combined_report.tsv"
+    output:
+        f"{OUTPUT_DIR}/taxonomy/{{sample}}_filtered_report.tsv"
+    shell:
+        """
+        awk '$1 >= 0.1 {print}' {input} > {output}  # Filters species with at least 0.1% abundance
+        """
+
+rule generate_final_matrix:
+    input:
+        expand(f"{OUTPUT_DIR}/taxonomy/{{sample}}_filtered_report.tsv", sample=config["samples"])
+    output:
+        f"{OUTPUT_DIR}/final_taxonomy_matrix.csv"
+    run:
+        import pandas as pd
+        import glob
+        
+        files = glob.glob(f"{OUTPUT_DIR}/taxonomy/*_filtered_report.tsv")
+        df_list = []
+        sample_names = []
+        
+        for file in files:
+            sample = file.split("/")[-1].replace("_filtered_report.tsv", "")
+            sample_names.append(sample)
+            df = pd.read_csv(file, sep="\t", usecols=[2, 1], names=["Taxon", sample], skiprows=1)
+            df_list.append(df.set_index("Taxon"))
+        
+        final_df = pd.concat(df_list, axis=1).fillna(0).astype(int)
+        final_df.insert(0, "Sample", sample_names)
+        final_df.to_csv(output, index=False)
+        """
