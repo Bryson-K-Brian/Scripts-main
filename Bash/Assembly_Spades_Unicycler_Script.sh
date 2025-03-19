@@ -112,7 +112,7 @@ for f in *R1_001_trimmed.fastq.gz; do
     # Run assembler (SPAdes or Unicycler)
     if [[ "$assembler" == "spades" ]]; then
         echo "Running SPAdes for sample $sample_name with assembly type $assembly_type"
-        spades.py -1 "$R1" -2 "$R2" -o ${sample_name}_assembly/spades_output --threads "$THREADS"
+        spades.py -1 "$R1" -2 "$R2" -o ${sample_name}_assembly/spades_output --threads "$THREADS" --$assembly_type
         # Rename SPAdes contigs file
         mv ${sample_name}_assembly/spades_output/contigs.fasta ${sample_name}_assembly/${sample_name}_spades.fasta
     elif [[ "$assembler" == "unicycler" ]]; then

@@ -2,6 +2,8 @@
 
 # Prompt for the input directory containing reads/contigs
 read -e -p "Enter the input directory containing the reads or contigs: " input_dir
+mkdir reports
+mkdir outputs
 
 # Check if the input directory exists
 if [[ ! -d "$input_dir" ]]; then
@@ -75,7 +77,7 @@ if [[ "$read_type" == "paired_end" ]]; then
 
         # Log the file pairs
         echo ""
-        echo "Processing paired-end sample: $(basename "$f" | sed 's/_R1_001.fastq.gz//')"
+        echo "Processing paired-end sample: ${f%_R1_001.fastq.gz}"
         echo "Read1: $RD1"
         echo "Read2: $RD2"
         echo ""
@@ -87,8 +89,8 @@ if [[ "$read_type" == "paired_end" ]]; then
         fi
 
         # Run Kraken2 for paired-end taxonomic identification
-        echo "Running Kraken2 for paired-end sample $(basename "$f" | sed 's/_R1_001.fastq.gz//') using the $db database..."
-        kraken2 --db "$db" --memory-mapping --threads 20 --output ${f%.fasta}.tsv --report --minimum-base-quality 20 --paired --use-names "$RD1" "$RD2"
+        echo "Running Kraken2 for paired-end sample ${f%_R1_001.fastq.gz} using the $db database..."
+        kraken2 --db "$db" --memory-mapping --gzip-compressed --minimum-base-quality 20 --paired --use-names --threads 20 --output outputs/${f%_R1_001.fastq.gz}_output.tsv --report reports/${f%_R1_001.fastq.gz}_report.tsv "$RD1" "$RD2"
 
         # Move the results to the 'taxid' folder
          mv ${f%.fasta}.tsv ../taxid/
@@ -110,19 +112,19 @@ elif [[ "$read_type" == "single_end" ]]; then
     for f in *.fastq.gz; do
         # Log the file
         echo ""
-        echo "Processing single-end sample: $(basename "$f" | sed 's/.fastq.gz//')"
+        echo "Processing single-end sample: ${f%.fastq.gz}"
         echo "Read: $f"
         echo ""
 
         # Run Kraken2 for single-end taxonomic identification
-        echo "Running Kraken2 for single-end sample $(basename "$f" | sed 's/.fastq.gz//') using the $db database..."
-        kraken2 --db "$db" --memory-mapping --threads 20 --output ${f%.fasta}.tsv --report --minimum-base-quality 20 --use-names "$f"
+        echo "Running Kraken2 for single-end sample ${f%.fastq.gz} using the $db database..."
+        kraken2 --db "$db" --memory-mapping --gzip-compressed --minimum-base-quality 10 --use-names --threads 20 --output outputs/${f%.fastq.gz}_output.tsv --report reports/${f%.fastq.gz}_report.tsv "$f"
 
         # Move the results to the 'taxid' folder
         mv ${f%.fasta}.tsv ../taxid/
 
         echo ""
-        echo "Sample $(basename "$f" | sed 's/.fastq.gz//') Kraken2 taxonomic identification complete."
+        echo "Sample ${f%.fastq.gz} Kraken2 taxonomic identification complete."
         echo ""
     done
 
@@ -138,19 +140,16 @@ elif [[ "$read_type" == "contigs" ]]; then
     for f in *.fasta; do
         # Log the file
         echo ""
-        echo "Processing contig sample: $(basename "$f" | sed 's/.fasta//')"
+        echo "Processing contig sample: ${f%.fasta}"
         echo "Contig file: $f"
         echo ""
 
         # Run Kraken2 for contig taxonomic identification
-        echo "Running Kraken2 for contig sample $(basename "$f" | sed 's/.fasta//') using the $db database..."
-        kraken2 --db "$db" --memory-mapping --threads 20 --output ${f%.fasta}.tsv --report --minimum-base-quality 20 --use-names "$f"
-
-        # Move the results to the 'taxid' folder
-        mv ${f%.fasta}.tsv ../taxid/
+        echo "Running Kraken2 for contig sample ${f%.fasta} using the $db database..."
+        kraken2 --db "$db" --use-names --memory-mapping --threads 20 --output outputs/${f%.fasta}_output.tsv --report reports/${f%.fasta}_report.tsv  "$f"
 
         echo ""
-        echo "Sample $(basename "$f" | sed 's/.fasta//') Kraken2 taxonomic identification complete."
+        echo "Sample ${f%.fasta} Kraken2 taxonomic identification complete."
         echo ""
     done
 fi
@@ -158,4 +157,4 @@ fi
 # Navigate back to the original directory
 cd - >/dev/null || exit 1
 
-echo "All samples processed. Taxonomic results are saved in the 'taxid' directory."
+echo "All samples processed. Taxonomic results are saved in the 'reports' and 'outputs" directories."
