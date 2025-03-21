@@ -10,10 +10,10 @@ if [[ ! -d "$input_dir" ]]; then
 fi
 
 # Prompt for the output directory prefix
-read -e -p "Enter the output directory prefix (e.g., 'trimmed_results'): " output_prefix
+read -e -p "Enter the output directory (e.g., 'trimmed_results'): " output_directory
 
 # Create the output directory
-output_dir="${output_prefix}_reads"
+output_dir="$output_directory"
 mkdir -p "$output_dir"
 
 # Check if there are matching FASTQ files
@@ -23,7 +23,7 @@ if ! ls "$input_dir"/*01.fastq.gz &>/dev/null; then
 fi
 
 # Loop through Read1 files and process them
-for f in "$input_dir"/*01.fastq.gz; do
+for f in "$input_dir"/*R1_001.fastq.gz; do
     # Define Read1 and Read2
     RD1="$f"
     RD2="${f%R1_001.fastq.gz}R2_001.fastq.gz"
@@ -40,13 +40,21 @@ for f in "$input_dir"/*01.fastq.gz; do
         continue
     fi
 
+    # Define repair output files
+    rpr1="${output_dir}/$(basename "${f%R1_001.fastq.gz}repaired_R1_001.fastq.gz")"
+    rpr2="${output_dir}/$(basename "${f%R1_001.fastq.gz}repaired_R2_001.fastq.gz")"
+
+    # Repair read pairs for disorder and missing mates
+    echo "Running Repair for sample $(basename "$f" | sed 's/_S.*//')..."
+    repair.sh in="$RD1" in2="$RD2" out="$rpr1" out2="$rpr2"
+    
     # Define trimmed output files
-    trm1="${output_dir}/$(basename "${f%R1_001.fastq.gz}R1_001_trimmed.fastq.gz")"
-    trm2="${output_dir}/$(basename "${f%R1_001.fastq.gz}R2_001_trimmed.fastq.gz")"
+    trm1="${output_dir}/$(basename "${f%R1_001.fastq.gz}trimmed_R1_001.fastq.gz")"
+    trm2="${output_dir}/$(basename "${f%R1_001.fastq.gz}trimmed_R2_001.fastq.gz")"
 
     # Quality Control using BBDUK
     echo "Running BBDUK for sample $(basename "$f" | sed 's/_S.*//')..."
-    bbduk.sh in="$RD1" in2="$RD2" out="$trm1" out2="$trm2" trimq=20 qtrim=rl minlength=50 minbasequality=0
+    bbduk.sh in="$rpr1" in2="$rpr2" out="$trm1" out2="$trm2" trimq=20 qtrim=rl minlength=50 minbasequality=0 ref="adapters"
 
     # Log completion for the sample
     echo "Sample $(basename "$f" | sed 's/_S.*//') Complete."
