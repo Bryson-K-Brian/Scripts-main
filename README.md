@@ -6,7 +6,7 @@ The bash script has prerequisite tools that need to be installed in order to be 
 1. Trimmomatic
 2. BBtools
 3. Qiime2
-3. Dorado (base calling nanopore reads into fast)
+3. Dorado (base calling nanopore reads into fastq)
 4. fastqc (quality checks)
 5. Parsnp
 6. Roary
