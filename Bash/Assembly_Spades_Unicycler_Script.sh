@@ -12,6 +12,10 @@ fi
 #Prompt for processing inputs
 read -p "Enter the number of threads to use: " THREADS
 
+read -p "Enter the amount of RAM to allocate (in GB): " SYSTEM_RAM
+SYSTEM_RAM=${SYSTEM_RAM:-8}  # Default to 8GB if no input provided
+ALLOCATED_RAM=$((SYSTEM_RAM * 1024))  # Convert to MB
+
 # Prompt for the assembler selection (SPAdes or Unicycler)
 echo "Select the assembler:"
 select assembler in "spades" "unicycler"; do
@@ -68,6 +72,23 @@ select assembly_type in "rna_viral" "plasmid" "isolate" "meta" "rna" "metaviral"
     esac
 done
 
+# Map the user selection to Unicycler mode
+case $assembly_type in
+    isolate|plasmid)
+        unicycler_mode="normal"
+        ;;
+    meta|metaviral|metaplasmid)
+        unicycler_mode="bold"
+        ;;
+    rna|rna_viral)
+        unicycler_mode="conservative"
+        ;;
+    *)
+        echo "Invalid assembly type for Unicycler. Defaulting to 'normal'."
+        unicycler_mode="normal"
+        ;;
+esac
+
 # Prompt for the output directory
 read -e -p "Enter the output directory prefix (e.g., wgs_assembly): " output_dir
 
@@ -78,20 +99,20 @@ mkdir -p "$output_dir"
 cd "$input_dir" || exit 1
 
 # Check for paired FASTQ files
-if ! ls *R1_001_trimmed.fastq.gz &>/dev/null; then
-    echo "No matching FASTQ files (*R1_001_trimmed.fastq.gz) found in '$input_dir'. Exiting."
+if ! ls *R1_001.fastq.gz &>/dev/null; then
+    echo "No matching FASTQ files (*R1_001.fastq.gz) found in '$input_dir'. Exiting."
     exit 1
 fi
 
 # Process each Read1 file
-for f in *R1_001_trimmed.fastq.gz; do
+for f in *R1_001.fastq.gz; do
     # Define Read1 and Read2
     RD1="$f"
-    RD2="${f%_R1_001_trimmed.fastq.gz}_R2_001_trimmed.fastq.gz"
+    RD2="${f%_R1_001.fastq.gz}_R2_001.fastq.gz"
 
     # Log the file pairs
     echo ""
-    echo "Processing sample: $(basename "$f" | sed 's/_R1_001_trimmed.fastq.gz//')"
+    echo "Processing sample: $(basename "$f" | sed 's/_R1_001.fastq.gz//')"
     echo "Read1: $RD1"
     echo "Read2: $RD2"
     echo ""
@@ -103,7 +124,7 @@ for f in *R1_001_trimmed.fastq.gz; do
     fi
 
     # Define output folder for this sample
-    sample_name="${f%_R1_001_trimmed.fastq.gz}"
+    sample_name="${f%_R1_001.fastq.gz}"
     sample_output_dir="$output_dir/${sample_name}"
 
     # Create output directory for the sample
@@ -112,13 +133,17 @@ for f in *R1_001_trimmed.fastq.gz; do
     # Run assembler (SPAdes or Unicycler)
     if [[ "$assembler" == "spades" ]]; then
         echo "Running SPAdes for sample $sample_name with assembly type $assembly_type"
-        spades.py -1 "$R1" -2 "$R2" -o ${sample_name}_assembly/spades_output --threads "$THREADS" --$assembly_type
+        spades.py -1 "$RD1" -2 "$RD2" -o "${sample_name}_assembly/spades_output" --threads "$THREADS" --$assembly_type 
         # Rename SPAdes contigs file
         mv ${sample_name}_assembly/spades_output/contigs.fasta ${sample_name}_assembly/${sample_name}_spades.fasta
     elif [[ "$assembler" == "unicycler" ]]; then
         echo "Running Unicycler for sample $sample_name"
-        unicycler --verbosity 1 -1 "$RD1" -2 "$RD2" -o ${sample_name}_assembly/unicycler_output --threads "$THREADS"
-        mv ${sample_name}_assembly/unicycler_output/assembly.fasta ${sample_name}_assembly/${sample_name}_unicycler.fasta
+        unicycler --verbosity 1 -1 "$RD1" -2 "$RD2" -o "$sample_output_dir/unicycler_output" --threads "$THREADS" --mode "$unicycler_mode" --spades_options "-m $ALLOCATED_RAM"
+        if [[ -f "$sample_output_dir/unicycler_output/assembly.fasta" ]]; then
+            mv "$sample_output_dir/unicycler_output/assembly.fasta" "$sample_output_dir/${sample_name}_unicycler.fasta"
+        else
+            echo "Error: Unicycler did not generate an assembly.fasta file for $sample_name"
+        fi
     fi
 
     echo ""

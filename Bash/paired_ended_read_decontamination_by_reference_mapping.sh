@@ -21,6 +21,8 @@ fi
 # Create the output directory
 output_dir="decontaminated_reads"
 mkdir -p "$output_dir"
+unmapped_dir="../unmapped_reads"
+mkdir -p "$unmapped_dir"
 
 # Navigate to the input directory
 cd "$input_dir" || exit 1
@@ -60,7 +62,7 @@ for f in *_R1_001.fastq.gz; do
 
     # Perform read mapping and processing
     echo "Running BBMap for sample $sample_name..."
-    bbmap.sh ref="$reference_genome" in="$RD1" in2="$RD2" out="$bam_file" bamscript=bs.sh; bash bs.sh
+    bbmap.sh ref="$reference_genome" in="$RD1" in2="$RD2" out="$bam_file" bamscript=bs.sh ambig=all; bash bs.sh
 
     echo "Filtering BAM to retain only mapped reads..."
     samtools view -bF 4 "$bam_file" > "$mapped_bam"
@@ -71,9 +73,18 @@ for f in *_R1_001.fastq.gz; do
     echo "Extracting mapped reads to FASTQ..."
     samtools fastq -1 "$fastq_R1_out" -2 "$fastq_R2_out" "$sorted_bam"
 
+    # Extract and save unmapped reads
+    echo "Extracting unmapped reads..."
+    unmapped_bam="${sample_name}_unmapped.bam"
+    samtools view -b -f 4 "$bam_file" > "$unmapped_bam"
+    
+    unmapped_R1="${sample_name}_unmapped_R1_001.fastq.gz"
+    unmapped_R2="${sample_name}_unmapped_R2_001.fastq.gz"
+    samtools fastq -1 "$unmapped_R1" -2 "$unmapped_R2" "$unmapped_bam"
+
     # Clean up intermediate files
     echo "Cleaning up intermediate files..."
-    rm "$bam_file" "$mapped_bam" "$sorted_bam"
+    rm "$bam_file" "$mapped_bam" "$sorted_bam" "$unmapped_bam"
 
     # Organize output
     echo "Organizing output files..."
@@ -81,6 +92,11 @@ for f in *_R1_001.fastq.gz; do
     mkdir -p "$sample_dir"
     mv $fastq_R1_out $fastq_R2_out "$sample_dir"
 
+    # Save unmapped reads separately
+    unmapped_sample_dir="$unmapped_dir/$sample_name"
+    mkdir -p "$unmapped_sample_dir"
+    mv $unmapped_R1 $unmapped_R2 "$unmapped_sample_dir"
+    
     echo "Sample $sample_name processing complete."
     echo ""
 done
@@ -88,4 +104,4 @@ done
 # Navigate back to the original directory
 cd - >/dev/null || exit 1
 
-echo "All samples processed. Decontaminated reads are saved in the '$output_dir' directory."
+echo "All samples processed. Decontaminated reads are saved in the '$output_dir' directory, and unmapped reads are saved in the '$unmapped_dir' directory."
